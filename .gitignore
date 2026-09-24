@@ -1,0 +1,13 @@
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+
+# Local tooling
+node_modules/
+
+# Local database
+parking.db
+__pycache__/

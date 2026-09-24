@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: parkflow
+      POSTGRES_USER: parking_user
+      POSTGRES_PASSWORD: change-me-before-production
+    volumes:
+      - parkflow-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U parking_user -d parkflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://parking_user:change-me-before-production@db:5432/parkflow
+      BARRIER_MODE: simulated
+      CORS_ORIGINS: http://localhost:5000
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  parkflow-db:
