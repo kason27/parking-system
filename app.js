@@ -31,6 +31,12 @@ function showToast(message, isError = false) {
 }
 function openModal(id) { const modal = $(`#${id}`); modal.classList.add('open'); modal.setAttribute('aria-hidden', 'false'); }
 function closeModal(id) { const modal = $(`#${id}`); modal.classList.remove('open'); modal.setAttribute('aria-hidden', 'true'); }
+function updatePaymentFields() {
+  const mpesaSelected = paymentMethod === 'M-Pesa';
+  $('#mpesa-phone-field').hidden = !mpesaSelected;
+  $('#mpesa-phone').required = mpesaSelected;
+  $('#pay-exit').innerHTML = mpesaSelected ? 'Send M-Pesa prompt <span>→</span>' : 'Pay &amp; open barrier <span>→</span>';
+}
 
 function renderMap() {
   const map = $('#parking-map');
@@ -103,6 +109,10 @@ async function openExit(id) {
   try {
     const quote = await api(`/sessions/${id}/quote`);
     checkoutRecordId = id;
+    paymentMethod = 'M-Pesa';
+    $$('.payment-choice').forEach(option => option.classList.toggle('active', option.dataset.method === paymentMethod));
+    $('#mpesa-phone').value = '';
+    updatePaymentFields();
     const record = quote.session;
     $('#checkout-summary').innerHTML = `<div class="checkout-row"><span>Vehicle</span><strong>${record.plate}</strong></div><div class="checkout-row"><span>Parking slot</span><strong>${record.slotCode}</strong></div><div class="checkout-row"><span>Entry time</span><strong>${formatTime(new Date(record.entryTime))}</strong></div><div class="checkout-row"><span>Total time</span><strong>${formatDuration(quote.durationMinutes)}</strong></div><div class="checkout-row checkout-total"><span>Amount due</span><strong>Ksh ${quote.amountDue.toLocaleString()}</strong></div>`;
     openModal('exit-modal');
@@ -118,6 +128,7 @@ $$('.payment-choice').forEach(button => button.addEventListener('click', () => {
   $$('.payment-choice').forEach(option => option.classList.remove('active'));
   button.classList.add('active');
   paymentMethod = button.dataset.method;
+  updatePaymentFields();
 }));
 $('#entry-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -130,9 +141,15 @@ $('#entry-form').addEventListener('submit', async (event) => {
 });
 $('#pay-exit').addEventListener('click', async () => {
   if (!checkoutRecordId) return;
+  const phone = $('#mpesa-phone').value.trim();
+  if (paymentMethod === 'M-Pesa' && !/^07\d{8}$/.test(phone.replace(/\s/g, ''))) {
+    showToast('Enter a valid M-Pesa number, for example 0712 345 678.', true);
+    $('#mpesa-phone').focus();
+    return;
+  }
   try {
-    const result = await api(`/sessions/${checkoutRecordId}/checkout`, { method: 'POST', body: JSON.stringify({ paymentMethod }) });
-    closeModal('exit-modal'); showToast(`Payment received. Barrier ${result.barrier} for ${result.session.plate}.`); checkoutRecordId = null; await refresh();
+    const result = await api(`/sessions/${checkoutRecordId}/checkout`, { method: 'POST', body: JSON.stringify({ paymentMethod, reference: paymentMethod === 'M-Pesa' ? phone.replace(/\s/g, '') : undefined }) });
+    closeModal('exit-modal'); showToast(paymentMethod === 'M-Pesa' ? `M-Pesa prompt sent to ${phone}. Barrier ${result.barrier} for ${result.session.plate}.` : `Cash payment received. Barrier ${result.barrier} for ${result.session.plate}.`); checkoutRecordId = null; await refresh();
   } catch (error) { showToast(error.message, true); }
 });
 $('#view-all').addEventListener('click', () => { $('#activity').scrollIntoView({ behavior: 'smooth' }); showToast('Showing the latest activity.'); });
