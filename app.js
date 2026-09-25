@@ -5,6 +5,7 @@ let records = [];
 let slots = [];
 let selectedSlot = null;
 let checkoutRecordId = null;
+let paymentMethod = 'M-Pesa';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -54,7 +55,6 @@ function renderStats(summary) {
   $('#vehicles-caption').textContent = `${summary.activeVehicles} currently inside`;
   $('#revenue-value').textContent = `Ksh ${summary.revenue.toLocaleString()}`;
   $('#avg-stay-value').textContent = formatDuration(summary.averageStayMinutes);
-  $('#revenue-change').textContent = summary.revenue ? '12%' : '0%';
 }
 
 function renderArrivals() {
@@ -114,6 +114,11 @@ $('#close-entry').addEventListener('click', () => closeModal('entry-modal'));
 $('#cancel-entry').addEventListener('click', () => closeModal('entry-modal'));
 $('#close-exit').addEventListener('click', () => closeModal('exit-modal'));
 $('#cancel-exit').addEventListener('click', () => closeModal('exit-modal'));
+$$('.payment-choice').forEach(button => button.addEventListener('click', () => {
+  $$('.payment-choice').forEach(option => option.classList.remove('active'));
+  button.classList.add('active');
+  paymentMethod = button.dataset.method;
+}));
 $('#entry-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const plate = $('#plate-input').value.trim().toUpperCase();
@@ -126,7 +131,7 @@ $('#entry-form').addEventListener('submit', async (event) => {
 $('#pay-exit').addEventListener('click', async () => {
   if (!checkoutRecordId) return;
   try {
-    const result = await api(`/sessions/${checkoutRecordId}/checkout`, { method: 'POST', body: JSON.stringify({ paymentMethod: 'M-Pesa' }) });
+    const result = await api(`/sessions/${checkoutRecordId}/checkout`, { method: 'POST', body: JSON.stringify({ paymentMethod }) });
     closeModal('exit-modal'); showToast(`Payment received. Barrier ${result.barrier} for ${result.session.plate}.`); checkoutRecordId = null; await refresh();
   } catch (error) { showToast(error.message, true); }
 });
